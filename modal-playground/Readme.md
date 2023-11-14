@@ -12,3 +12,14 @@ Afterwards, create a token
 modal token new
 ```
 
+# Getting Started
+
+```bash
+modal run hello-world.py
+```
+
+# Stable Diff Demo
+
+```bash
+modal run stable-diff-xl.py --prompt "An astronaut riding a green horse"
+```
