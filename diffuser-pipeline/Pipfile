@@ -9,8 +9,11 @@ diffusers = "*"
 transformers = "*"
 accelerate = "*"
 huggingface-hub = "*"
+opencv-python = "*"
+numpy = "*"
 # Install pytorch manually depending on your cuda version
 # https://pytorch.org/get-started/locally/
+pillow = "*"
 
 [dev-packages]
 
