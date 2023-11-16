@@ -17,6 +17,73 @@ from transformers import pipeline
 #         "runwayml/stable-diffusion-v1-5", ignore_patterns=ignore
 #     )
 
+
+def control_net_canny(img):
+    canny_image = canny(img=img, low_threshold=100, high_threshold=200)
+
+    controlnet = get_control_net_canny()
+    pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16, use_safetensors=True
+    ).to("cuda")
+
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_model_cpu_offload()
+
+    image = pipe(
+        "the mona lisa", image=canny_image
+    ).images[0]
+    image.save("mona_lisa.png")
+
+
+def control_net_depth(img):
+    depth_map = extract_depth(img)
+
+    controlnet = get_control_net_depth()
+
+    pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
+        "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16, use_safetensors=True
+    ).to("cuda")
+
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_model_cpu_offload()
+
+    image = pipe(
+        "lego batman and robin", image=img, control_image=depth_map,
+    ).images[0]
+    image.save("lego_batman_and_robin.png")
+
+
+def control_net_combined(img):
+    depth_map = extract_depth(img)
+    canny_image = canny(img=img, low_threshold=100, high_threshold=200)
+    # transform to PIL image
+
+    controlnet_canny = get_control_net_canny()
+    controlnet_depth = get_control_net_depth()
+
+    pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
+        "runwayml/stable-diffusion-v1-5", controlnet=[controlnet_depth, controlnet_canny], torch_dtype=torch.float16,
+        use_safetensors=True).to("cuda")
+
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe.enable_model_cpu_offload()
+
+    image = pipe(
+        "", image=[img], control_image=[depth_map, canny_image], guess_mode=True, guidance_scale=3.0,
+    ).images[0]
+    image.save("output.png")
+
+
+def get_control_net_depth():
+    return ControlNetModel.from_pretrained("lllyasviel/control_v11f1p_sd15_depth", torch_dtype=torch.float16,
+                                           use_safetensors=True)
+
+
+def get_control_net_canny():
+    return ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16,
+                                           use_safetensors=True)
+
+
 def canny(img, low_threshold=100, high_threshold=200):
     image = np.array(img)
 
@@ -36,51 +103,19 @@ def get_depth_map(image, depth_estimator):
     return depth_map
 
 
-def control_net_canny(img):
-    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny", torch_dtype=torch.float16,
-                                                 use_safetensors=True)
-    pipe = StableDiffusionControlNetPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16, use_safetensors=True
-    ).to("cuda")
-
-    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_model_cpu_offload()
-
-    image = load_image(img)
-    canny_image = canny(img=image, low_threshold=100, high_threshold=200)
-
-    image = pipe(
-        "the mona lisa", image=canny_image
-    ).images[0]
-    image.save("mona_lisa.png")
-
-
-def control_net_depth(img):
+def extract_depth(img):
     depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
-    depth_map = get_depth_map(img, depth_estimator).unsqueeze(0).half().to("cuda")
+    og_depth_map = get_depth_map(img, depth_estimator).unsqueeze(0).half().to("cuda")
     # save depth map
-    depth_map = depth_map.squeeze(0).permute(1, 2, 0).cpu().numpy()
+    depth_map = og_depth_map.squeeze(0).permute(1, 2, 0).cpu().numpy()
     depth_map = depth_map * 255
     depth_map = depth_map.astype(np.uint8)
     depth_map = Image.fromarray(depth_map)
     depth_map.save("depth_map.png")
-
-    controlnet = ControlNetModel.from_pretrained("lllyasviel/control_v11f1p_sd15_depth", torch_dtype=torch.float16,
-                                                 use_safetensors=True)
-    pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", controlnet=controlnet, torch_dtype=torch.float16, use_safetensors=True
-    ).to("cuda")
-
-    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    pipe.enable_model_cpu_offload()
-
-    image = pipe(
-        "lego batman and robin", image=img, control_image=depth_map,
-    ).images[0]
-    image.save("lego_batman_and_robin.png")
+    return og_depth_map
 
 
-def main():
+def test_stable_diffusion():
     model_id = "runwayml/stable-diffusion-v1-5"
     pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
     pipe = pipe.to("cuda")
@@ -95,4 +130,5 @@ def main():
 # canny(image)
 # control_net_canny("../testData/input_image_vermeer.png")
 image = load_image("../testData/American_Gothic.jpg")
-control_net_depth(image)
+control_net_combined(image)
+# control_net_depth(image)
