@@ -53,7 +53,8 @@ def control_net_depth(img):
     image.save("lego_batman_and_robin.png")
 
 
-def control_net_combined(img):
+def control_net_combined(img, model_name="runwayml/stable-diffusion-v1-5", prompt="", scale=1.0):
+    img = img.resize((int(img.width * scale), int(img.height * scale)))
     depth_map = extract_depth(img)
     canny_image = canny(img=img, low_threshold=100, high_threshold=200)
     # transform to PIL image
@@ -61,17 +62,18 @@ def control_net_combined(img):
     controlnet_canny = get_control_net_canny()
     controlnet_depth = get_control_net_depth()
 
-    pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", controlnet=[controlnet_depth, controlnet_canny], torch_dtype=torch.float16,
+
+    pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+        model_name, controlnet=[controlnet_depth, controlnet_canny], torch_dtype=torch.float16,
         use_safetensors=True).to("cuda")
 
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
     pipe.enable_model_cpu_offload()
 
     image = pipe(
-        "", image=[img], control_image=[depth_map, canny_image], guess_mode=True, guidance_scale=3.0,
+        prompt, image=[img], control_image=[depth_map, canny_image],
     ).images[0]
-    image.save("output.png")
+    image.save(model_name + "_output.png")
 
 
 def get_control_net_depth():
@@ -129,6 +131,13 @@ def test_stable_diffusion():
 # image = load_image("../testData/input_image_vermeer.png")
 # canny(image)
 # control_net_canny("../testData/input_image_vermeer.png")
-image = load_image("../testData/American_Gothic.jpg")
-control_net_combined(image)
+#image = load_image("../testData/American_Gothic.jpg")
+#control_net_combined(image, model_name="segmind/SSD-1B")
+
+# ReturnOfTheMayflower
+# image = load_image("../testData/ReturnOfTheMayflower.jpg")
+# control_net_combined(image, model_name="aniflatmixAnimeFlatColorStyle_v20.safetensors", prompt="anime cyberpunk space laser gun")
+
+image = load_image("../testData/TheHuntersInTheSnow.jpg")
+control_net_combined(image, model_name="photon_v1.safetensors", prompt="post apocalyptic nuclear winter", scale=0.5)
 # control_net_depth(image)

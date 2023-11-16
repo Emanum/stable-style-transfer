@@ -11,6 +11,7 @@ accelerate = "*"
 huggingface-hub = "*"
 opencv-python = "*"
 numpy = "*"
+omegaconf = "*"
 # Install pytorch manually depending on your cuda version
 # https://pytorch.org/get-started/locally/
 pillow = "*"
