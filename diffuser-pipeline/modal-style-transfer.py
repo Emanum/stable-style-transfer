@@ -40,7 +40,7 @@ def download_models():
         "lllyasviel/sd-controlnet-canny", ignore_patterns=ignore
     )
     snapshot_download(
-        "lllyasviel/control_v11f1p_sd15_dept", ignore_patterns=ignore
+        "lllyasviel/control_v11f1p_sd15_depth", ignore_patterns=ignore
     )
 
 
@@ -87,7 +87,8 @@ with stub.image.run_inside():
 class Model:
     def __enter__(self):
         import torch
-        from diffusers import DiffusionPipeline, ControlNetModel, StableDiffusionControlNetImg2ImgPipeline, UniPCMultistepScheduler
+        from diffusers import DiffusionPipeline, ControlNetModel, StableDiffusionControlNetImg2ImgPipeline, \
+            UniPCMultistepScheduler
         from transformers import pipeline
 
         load_options = dict(
@@ -98,9 +99,6 @@ class Model:
         )
 
         # Load base model
-        self.base = DiffusionPipeline.from_pretrained(
-            "stabilityai/stable-diffusion-xl-base-1.0", **load_options
-        )
 
         # Load ControlNet
         self.canny_controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny",
@@ -113,7 +111,7 @@ class Model:
 
         self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")
 
-        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
             "stabilityai/stable-diffusion-xl-base-1.0", controlnet=[self.depth_controlnet, self.canny_controlnet],
             torch_dtype=torch.float16,
             use_safetensors=True).to("cuda")
@@ -136,21 +134,20 @@ class Model:
 
         # calc canny
         canny_img = np.array(init_image)
-        canny_img = cv2.Canny(canny_img, low_threshold=100, high_threshold=200)
+        canny_img = cv2.Canny(canny_img, 100, 200)
         canny_img = canny_img[:, :, None]
         canny_img = np.concatenate([canny_img, canny_img, canny_img], axis=2)
         canny_image = Image.fromarray(canny_img)
 
         # calc depth_map
-        depth_img = np.array(init_image)
-        depth_img = depth_img[:, :, None]
-        depth_img = np.concatenate([depth_img, depth_img, depth_img], axis=2)
-        detected_map = torch.from_numpy(depth_img).float() / 255.0
-        depth_map = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
+        # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
+        depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
+        # depth_map = self.get_depth_map(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
 
         image = self.pipe(
             prompt, image=[init_image], control_image=[depth_map, canny_image],
         ).images[0]
+        # image = canny_image
 
         import io
 
@@ -159,6 +156,17 @@ class Model:
         image_bytes = byte_stream.getvalue()
 
         return image_bytes
+
+    @method()
+    def get_depth_map(self, image, depth_estimator):
+        image = depth_estimator(image)["depth"]
+        image = np.array(image)
+        image = image[:, :, None]
+        image = np.concatenate([image, image, image], axis=2)
+        detected_map = torch.from_numpy(image).float() / 255.0
+        depth_map = detected_map.permute(2, 0, 1)
+        return depth_map
+
 
 # And this is our entrypoint; where the CLI is invoked. Explore CLI options
 # with: `modal run stable_diffusion_xl.py --prompt 'An astronaut riding a green horse'`
