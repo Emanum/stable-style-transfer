@@ -12,9 +12,10 @@ huggingface-hub = "*"
 opencv-python = "*"
 numpy = "*"
 omegaconf = "*"
+pillow = "*"
+modal = "*"
 # Install pytorch manually depending on your cuda version
 # https://pytorch.org/get-started/locally/
-pillow = "*"
 
 [dev-packages]
 

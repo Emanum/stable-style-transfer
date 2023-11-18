@@ -83,7 +83,7 @@ with stub.image.run_inside():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
+@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, interactive=True)
 class Model:
     def __enter__(self):
         import torch
@@ -141,9 +141,9 @@ class Model:
 
         # calc depth_map
         # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
-        depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
+        depth_map = Model().get_depth_map.local(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
         # depth_map = self.get_depth_map(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
-
+        breakpoint()
         image = self.pipe(
             prompt, image=[init_image], control_image=[depth_map, canny_img],
         )
@@ -175,7 +175,7 @@ class Model:
 
 @stub.local_entrypoint()
 def main(prompt: str):
-    image_bytes = Model().inference.remote(prompt)
+    image_bytes = Model().inference.local(prompt)
 
     dir = Path("./stable-diffusion-xl")
     if not dir.exists():
