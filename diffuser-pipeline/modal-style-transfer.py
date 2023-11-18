@@ -34,7 +34,7 @@ def download_models():
 
     ignore = ["*.bin", "*.onnx_data", "*/diffusion_pytorch_model.safetensors"]
     snapshot_download(
-        "stabilityai/stable-diffusion-xl-base-1.0", ignore_patterns=ignore
+        "runwayml/stable-diffusion-v1-5", ignore_patterns=ignore
     )
     snapshot_download(
         "lllyasviel/sd-controlnet-canny", ignore_patterns=ignore
@@ -50,11 +50,11 @@ image = (
         "libglib2.0-0", "libsm6", "libxrender1", "libxext6", "ffmpeg", "libgl1"
     )
     .pip_install(
-        "diffusers~=0.19",
-        "invisible_watermark~=0.1",
-        "transformers~=4.31",
-        "accelerate~=0.21",
-        "safetensors~=0.3",
+        "diffusers",
+        "invisible_watermark",
+        "transformers",
+        "accelerate",
+        "safetensors",
         "accelerate",
         "opencv-python",
         "numpy",
@@ -112,7 +112,7 @@ class Model:
         self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")
 
         self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-            "stabilityai/stable-diffusion-xl-base-1.0", controlnet=[self.depth_controlnet, self.canny_controlnet],
+            "runwayml/stable-diffusion-v1-5", controlnet=[self.depth_controlnet, self.canny_controlnet],
             torch_dtype=torch.float16,
             use_safetensors=True).to("cuda")
 
@@ -145,8 +145,9 @@ class Model:
         # depth_map = self.get_depth_map(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
 
         image = self.pipe(
-            prompt, image=[init_image], control_image=[depth_map, canny_image],
-        ).images[0]
+            prompt, image=[init_image], control_image=[depth_map, canny_img],
+        )
+        image = image.images[0]
         # image = canny_image
 
         import io
