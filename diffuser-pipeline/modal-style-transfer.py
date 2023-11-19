@@ -43,6 +43,37 @@ def download_models():
         "lllyasviel/control_v11f1p_sd15_depth", ignore_patterns=ignore
     )
 
+    # custom models from civitai.com
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/1356",
+              "dreamlikeDiffusion10_10.ckpt")
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/90072",
+              "photon_v1.safetensors")
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/40816",
+              "aniflatmixAnimeFlatColorStyle_v20.safetensors")
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/105924",
+              "cetusMix_Whalefall2.safetensors")
+
+
+def run_async(func, *args, **kwargs):
+    import threading
+    thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+    thread.start()
+    return thread
+
+
+def download_file_with_tqdm(url, filename):
+    import requests
+    from pathlib import Path
+    from tqdm import tqdm
+
+    r = requests.get(url, allow_redirects=True, stream=True)
+    with open(filename, 'wb') as f:
+        file_size = int(r.headers['Content-Length'])
+        chunk_size = 1024
+        num_bars = int(file_size / chunk_size)
+        for chunk in tqdm(r.iter_content(chunk_size=chunk_size), total=num_bars, unit='KB', desc=filename, leave=True):
+            f.write(chunk)
+
 
 image = (
     Image.debian_slim()
@@ -71,7 +102,6 @@ with stub.image.run_inside():
     import cv2
     from diffusers.utils import load_image
     import torch
-
 
 # ## Load model and run inference
 #
@@ -110,8 +140,9 @@ class Model:
 
         self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")
 
-        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-            "runwayml/stable-diffusion-v1-5", controlnet=[self.depth_controlnet, self.canny_controlnet],
+        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+            "aniflatmixAnimeFlatColorStyle_v20.safetensors",
+            controlnet=[self.depth_controlnet, self.canny_controlnet],
             torch_dtype=torch.float16,
             use_safetensors=True,
             safety_checker=None,
@@ -181,7 +212,7 @@ class Model:
 def main(prompt: str, init_image: bytes):
     image_bytes = Model().inference.remote(prompt, init_image)
 
-    dir = Path("./stable-diffusion-xl")
+    dir = Path("output")
     if not dir.exists():
         dir.mkdir(exist_ok=True, parents=True)
 
