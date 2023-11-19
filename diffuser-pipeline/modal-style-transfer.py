@@ -124,12 +124,14 @@ class Model:
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
     @method()
-    def inference(self, prompt):
+    def inference(self, prompt: str, init_image_bytes: bytes):
         # negative_prompt = "disfigured, ugly, deformed"
 
-        # load image from url
-        init_image = load_image(
-            "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/cat.png")
+        # write image to file
+        with open("image.png", "wb") as f:
+            f.write(init_image_bytes)
+
+        init_image = load_image("image.png")
 
         # calc canny
         canny_img = np.array(init_image)
@@ -141,7 +143,6 @@ class Model:
         # calc depth_map
         # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
         depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
-        # depth_map = self.get_depth_map(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
 
         print(f"type of init_image: {type(init_image)}")
 
@@ -175,8 +176,8 @@ class Model:
 
 
 @stub.local_entrypoint()
-def main(prompt: str):
-    image_bytes = Model().inference.remote(prompt)
+def main(prompt: str, init_image: bytes):
+    image_bytes = Model().inference.remote(prompt, init_image)
 
     dir = Path("./stable-diffusion-xl")
     if not dir.exists():
@@ -211,11 +212,15 @@ def app():
 
     web_app = FastAPI()
 
-    @web_app.get("/infer/{prompt}")
-    async def infer(prompt: str):
+    @web_app.post("/infer/")
+    async def infer(request: fastapi.Request):
         from fastapi.responses import Response
 
-        image_bytes = Model().inference.remote(prompt)
+        form = await request.form()
+        init_image = await form["init_image"].read()
+        prompt = form["prompt"]
+
+        image_bytes = Model().inference.remote(prompt, init_image)
 
         return Response(image_bytes, media_type="image/png")
 
