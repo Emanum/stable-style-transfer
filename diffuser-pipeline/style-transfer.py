@@ -106,7 +106,7 @@ def get_depth_map(image, depth_estimator):
 
 
 def extract_depth(img):
-    depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
+    depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas")  # dpt-hybrid-midas
     og_depth_map = get_depth_map(img, depth_estimator).unsqueeze(0).half().to("cuda")
     # save depth map
     depth_map = og_depth_map.squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -139,5 +139,5 @@ def test_stable_diffusion():
 # control_net_combined(image, model_name="aniflatmixAnimeFlatColorStyle_v20.safetensors", prompt="anime cyberpunk space laser gun")
 
 image = load_image("../testData/TheHuntersInTheSnow.jpg")
-control_net_combined(image, model_name="photon_v1.safetensors", prompt="post apocalyptic nuclear winter", scale=0.5)
+control_net_combined(image, model_name="photon_v1.safetensors", prompt="post apocalyptic nuclear winter", scale=0.25)
 # control_net_depth(image)

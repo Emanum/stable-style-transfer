@@ -102,6 +102,7 @@ with stub.image.run_inside():
     import cv2
     from diffusers.utils import load_image
     import torch
+    from PIL import Image as PILImage
 
 # ## Load model and run inference
 #
@@ -117,7 +118,7 @@ class Model:
     def __enter__(self):
         import torch
         from diffusers import DiffusionPipeline, ControlNetModel, StableDiffusionControlNetImg2ImgPipeline, \
-            UniPCMultistepScheduler
+            UniPCMultistepScheduler, StableDiffusionPipeline
         from transformers import pipeline
 
         load_options = dict(
@@ -146,13 +147,17 @@ class Model:
         print("Loading Pipeline")
         self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
             "aniflatmixAnimeFlatColorStyle_v20.safetensors",
-            controlnet=[self.depth_controlnet, self.canny_controlnet],
+            # controlnet=[self.depth_controlnet, self.canny_controlnet],
+            controlnet=[self.depth_controlnet],
             torch_dtype=torch.float16,
-            variant="fp16",
-            device_map="auto",
             use_safetensors=True,
             safety_checker=None,
             load_safety_checker=False).to("cuda")
+        # self.pipe = StableDiffusionPipeline.from_single_file("aniflatmixAnimeFlatColorStyle_v20.safetensors",
+        #                                                      torch_dtype=torch.float16,
+        #                                                      use_safetensors=True,
+        #                                                      safety_checker=None,
+        #                                                      load_safety_checker=False).to("cuda")
 
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         self.pipe.enable_model_cpu_offload()
@@ -192,15 +197,23 @@ class Model:
         canny_img = canny_img[:, :, None]
         canny_img = np.concatenate([canny_img, canny_img, canny_img], axis=2)
         canny_img = np.array([canny_img])
+        # canny_pil_img = PILImage.fromarray(canny_img[0])
 
         # calc depth_map
         # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
         print("Calculating depth map")
-        depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
+        og_depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator)
+        depth_map = og_depth_map.unsqueeze(0).half().to("cuda")
+        # depth_img = og_depth_map.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        # depth_img = depth_img * 255
+        # depth_img = depth_img.astype(np.uint8)
+        # depth_img = PILImage.fromarray(depth_img)
 
         print("Running Pipeline")
         image = self.pipe(
-            prompt, image=init_image, control_image=[depth_map, canny_img],
+            prompt,
+            image=init_image,
+            control_image=[depth_map],
         )
         image = image.images[0]
         # image = canny_image
