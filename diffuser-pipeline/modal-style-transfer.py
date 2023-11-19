@@ -51,7 +51,7 @@ image = (
     )
     .pip_install(
         "diffusers",
-        "invisible_watermark",
+        # "invisible_watermark",
         "transformers",
         "accelerate",
         "safetensors",
@@ -113,7 +113,9 @@ class Model:
         self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
             "runwayml/stable-diffusion-v1-5", controlnet=[self.depth_controlnet, self.canny_controlnet],
             torch_dtype=torch.float16,
-            use_safetensors=True).to("cuda")
+            use_safetensors=True,
+            safety_checker=None,
+            requires_safety_checker=False).to("cuda")
 
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         self.pipe.enable_model_cpu_offload()
