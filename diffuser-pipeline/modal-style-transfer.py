@@ -130,23 +130,29 @@ class Model:
         # Load base model
 
         # Load ControlNet
+        print("Loading ControlNet Canny")
         self.canny_controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny",
                                                                 torch_dtype=torch.float16,
                                                                 use_safetensors=True)
 
+        print("Loading ControlNet Depth")
         self.depth_controlnet = ControlNetModel.from_pretrained("lllyasviel/control_v11f1p_sd15_depth",
                                                                 torch_dtype=torch.float16,
                                                                 use_safetensors=True)
 
-        self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")
+        print("Loading ControlNet depth-estimation")
+        self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas")
 
+        print("Loading Pipeline")
         self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
             "aniflatmixAnimeFlatColorStyle_v20.safetensors",
             controlnet=[self.depth_controlnet, self.canny_controlnet],
             torch_dtype=torch.float16,
+            variant="fp16",
+            device_map="auto",
             use_safetensors=True,
             safety_checker=None,
-            requires_safety_checker=False).to("cuda")
+            load_safety_checker=False).to("cuda")
 
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         self.pipe.enable_model_cpu_offload()
@@ -165,8 +171,22 @@ class Model:
             f.write(init_image_bytes)
 
         init_image = load_image("image.png")
+        # reduce image size to max 1024px on the longest side but keep aspect ratio
+        max_size = 1024
+        if init_image.width > max_size or init_image.height > max_size:
+            print(f"Resizing image from {init_image.width}x{init_image.height}")
+            if init_image.width > init_image.height:
+                new_width = max_size
+                new_height = int(max_size * init_image.height / init_image.width)
+            else:
+                new_height = max_size
+                new_width = int(max_size * init_image.width / init_image.height)
+            init_image = init_image.resize((new_width, new_height))
+            print(f"Resized image to {new_width}x{new_height}")
+
 
         # calc canny
+        print("Calculating canny")
         canny_img = np.array(init_image)
         canny_img = cv2.Canny(canny_img, 100, 200)
         canny_img = canny_img[:, :, None]
@@ -175,10 +195,10 @@ class Model:
 
         # calc depth_map
         # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
+        print("Calculating depth map")
         depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
 
-        print(f"type of init_image: {type(init_image)}")
-
+        print("Running Pipeline")
         image = self.pipe(
             prompt, image=init_image, control_image=[depth_map, canny_img],
         )
