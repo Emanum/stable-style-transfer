@@ -69,7 +69,6 @@ stub = Stub("stable-style-transfer", image=image)
 with stub.image.run_inside():
     import numpy as np
     import cv2
-    from PIL import Image
     from diffusers.utils import load_image
     import torch
 
@@ -83,7 +82,7 @@ with stub.image.run_inside():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, interactive=True)
+@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
 class Model:
     def __enter__(self):
         import torch
@@ -137,15 +136,17 @@ class Model:
         canny_img = cv2.Canny(canny_img, 100, 200)
         canny_img = canny_img[:, :, None]
         canny_img = np.concatenate([canny_img, canny_img, canny_img], axis=2)
-        canny_image = Image.fromarray(canny_img)
+        canny_img = np.array([canny_img])
 
         # calc depth_map
         # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
-        depth_map = Model().get_depth_map.local(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
+        depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
         # depth_map = self.get_depth_map(init_image, self.depth_estimator).unsqueeze(0).half().to("cuda")
-        breakpoint()
+
+        print(f"type of init_image: {type(init_image)}")
+
         image = self.pipe(
-            prompt, image=[init_image], control_image=[depth_map, canny_img],
+            prompt, image=init_image, control_image=[depth_map, canny_img],
         )
         image = image.images[0]
         # image = canny_image
@@ -175,7 +176,7 @@ class Model:
 
 @stub.local_entrypoint()
 def main(prompt: str):
-    image_bytes = Model().inference.local(prompt)
+    image_bytes = Model().inference.remote(prompt)
 
     dir = Path("./stable-diffusion-xl")
     if not dir.exists():
