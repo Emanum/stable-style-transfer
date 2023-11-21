@@ -21,7 +21,7 @@
 
     <form
             @submit.prevent="submitPrompt"
-            class="flex items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-4"
+            class="flex-1 items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-4"
     >
         <input
                 x-data
@@ -35,11 +35,12 @@
                 type="file"
                 accept="image/*"
         @change="handleImageChange"
-        class="flex w-full px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+        class="px-3 py-3 my-5 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
         />
+
         <button
                 type="submit"
-                class="inline-flex items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
+                class=" items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
                 :disabled="loading"
         >
             <span x-show="!loading">Submit</span>
