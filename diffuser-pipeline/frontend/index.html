@@ -11,43 +11,64 @@
 </head>
 <body x-data="state()">
 <div class="max-w-3xl mx-auto pt-4 pb-8 px-10 sm:py-12 sm:px-6 lg:px-8">
-    <h2 class="text-3xl font-medium text-center mb-10">
-        Stable Style Transfer on Modal.com
+    <h2 class="text-3xl font-medium text-center mb-1">
+        Stable Style Transfer
     </h2>
 
-    <p class="text-xl font-medium text-center mb-10">
-        The first request will take around 2-3min due to cold start of the GPU instance. Subsequent requests will be much faster.
+    <p class="text-m font-medium text-center mb-5">
+        The request will take ~1 minute to process. After submitting a loading indicator will appear.
     </p>
 
     <form
             @submit.prevent="submitPrompt"
-            class="grid grid-cols-2 items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-10"
+            class="grid grid-cols-2 items-center justify-center gap-x-4 w-full mx-auto mb-10"
     >
-        <input
-                x-data
-                x-model="prompt"
-                x-init="$nextTick(() => { $el.focus(); });"
-                type="text"
-                class="w-full col-span-2 px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
-        />
-        <!-- Add file input for init_image -->
-        <input
-                type="file"
-                accept="image/*"
-        @change="handleImageChange"
-        class="px-3 py-3 my-5 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
-        />
-        <div>
-            <label class="mx-5">Guess Mode</label>
-            <input type="checkbox" @change="handleGuessModeChange"         class="px-3 py-3 my-5 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"/>
-        </div>
+        <div class="grid grid-cols-2 col-span-2 shadow-lg rounded-md bg-neutral-100 p-5">
+            <h2 class="col-span-2 text-xl font-medium text-center my-3">1. Select an Image</h2>
+            <input
+                    type="file"
+                    accept="image/*"
+                    @change="handleImageChange"
+                    class="px-3 py-3 col-span-2 my-2 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+            />
 
+            <h2 class="col-span-2 text-xl font-medium text-center mb-5">2. Select a Style</h2>
+            <select
+                    x-data
+                    x-model="model"
+                    x-init="$nextTick(() => { $el.focus(); });"
+                    type="text"
+                    class="w-full col-span-2 px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+            >
+                <option value="aniflatmixAnimeFlatColorStyle_v20.safetensors">Anime Flat Color</option>
+                <option value="cetusMix_Whalefall2.safetensors">Anime - Cetus-Mix</option>
+                <option value="photon_v1.safetensors">Photorealistic</option>
+                <option value="dreamlikeDiffusion10_10.ckpt">Dreamlike Diffusion 1.0</option>
+            </select>
+
+            <h2 class="col-span-2 text-xl font-medium text-center my-5"> 3. Provide a Prompt (optional)</h2>
+            <input
+                    x-data
+                    x-model="prompt"
+                    x-init="$nextTick(() => { $el.focus(); });"
+                    type="text"
+                    class="w-full col-span-2 px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+            />
+
+
+            <h2 class="col-span-2 text-xl font-medium text-center ">Advanced Settings</h2>
+            <div>
+                <label class="mx-5">Guess Mode</label>
+                <input type="checkbox" @change="handleGuessModeChange"
+                       class="px-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"/>
+            </div>
+        </div>
         <button
                 type="submit"
-                class="col-span-2 items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
+                class="col-span-2 mt-5 items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
                 :disabled="loading"
         >
-            <span x-show="!loading">Submit</span>
+            <span x-show="!loading">Transfer</span>
             <div class="animate-spin w-6 h-6 mx-3" x-show="loading">
                 <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -90,6 +111,7 @@
             loading: false,
             imageURL: "",
             guessMode: false,
+            model: "aniflatmixAnimeFlatColorStyle_v20.safetensors",
             async submitPrompt() {
                 if (!this.init_image) return;
                 this.submitted = this.prompt;
@@ -105,6 +127,7 @@
                 formData.append('init_image', this.init_image);
                 formData.append('prompt', this.prompt);
                 formData.append('guess_mode', this.guessMode);
+                formData.append('model_name', this.model);
                 const res = await fetch(`/infer/`, {
                     method: 'POST',
                     body: formData
@@ -113,7 +136,11 @@
                 const blob = await res.blob();
                 this.imageURL = URL.createObjectURL(blob);
                 this.loading = false;
-                console.log(this.imageURL);
+                // scroll down to image
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: "smooth",
+                });
             },
             toggleFeature(featureName) {
                 let index = this.features.indexOf(featureName);

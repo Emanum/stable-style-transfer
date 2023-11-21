@@ -34,16 +34,14 @@ def download_models():
 
     ignore = ["*.bin", "*.onnx_data", "*/diffusion_pytorch_model.safetensors"]
     snapshot_download(
-        "runwayml/stable-diffusion-v1-5", ignore_patterns=ignore
-    )
-    snapshot_download(
         "lllyasviel/sd-controlnet-canny", ignore_patterns=ignore
     )
     snapshot_download(
         "lllyasviel/control_v11f1p_sd15_depth", ignore_patterns=ignore
     )
-
-    # "Intel/dpt-hybrid-midas") TODO: add this to the list of models to download
+    snapshot_download(
+        "Intel/dpt-hybrid-midas", ignore_patterns=ignore
+    )
 
     # custom models from civitai.com
     run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/1356",
@@ -105,6 +103,7 @@ with stub.image.run_inside():
     from diffusers.utils import load_image
     import torch
     from PIL import Image as PILImage
+    from diffusers import StableDiffusionControlNetImg2ImgPipeline, UniPCMultistepScheduler
 
 # ## Load model and run inference
 #
@@ -117,6 +116,9 @@ with stub.image.run_inside():
 
 @stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
 class Model:
+    def __init__(self):
+        self.pipe = None
+
     def __enter__(self):
         import torch
         from diffusers import DiffusionPipeline, ControlNetModel, StableDiffusionControlNetImg2ImgPipeline, \
@@ -146,23 +148,6 @@ class Model:
         print("Loading ControlNet depth-estimation")
         self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas")
 
-        print("Loading Pipeline")
-        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
-            "aniflatmixAnimeFlatColorStyle_v20.safetensors",
-            # controlnet=[self.depth_controlnet, self.canny_controlnet],
-            controlnet=[self.depth_controlnet],
-            torch_dtype=torch.float16,
-            use_safetensors=True,
-            safety_checker=None,
-            load_safety_checker=False).to("cuda")
-        # self.pipe = StableDiffusionPipeline.from_single_file("aniflatmixAnimeFlatColorStyle_v20.safetensors",
-        #                                                      torch_dtype=torch.float16,
-        #                                                      use_safetensors=True,
-        #                                                      safety_checker=None,
-        #                                                      load_safety_checker=False).to("cuda")
-
-        self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
-        self.pipe.enable_model_cpu_offload()
 
         # Compiling the model graph is JIT so this will increase inference time for the first run
         # but speed up subsequent runs. Uncomment to enable.
@@ -170,7 +155,8 @@ class Model:
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
     @method()
-    def inference(self, prompt: str, init_image_bytes: bytes, guess_mode: bool = False):
+    def inference(self, prompt: str, init_image_bytes: bytes, guess_mode: bool = False,
+                  model_name: str = "aniflatmixAnimeFlatColorStyle_v20.safetensors"):
         # negative_prompt = "disfigured, ugly, deformed"
 
         # write image to file
@@ -211,6 +197,20 @@ class Model:
         # depth_img = depth_img.astype(np.uint8)
         # depth_img = PILImage.fromarray(depth_img)
 
+        # load model
+        print("Loading Pipeline")
+        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+            model_name,
+            # controlnet=[self.depth_controlnet, self.canny_controlnet],
+            controlnet=[self.depth_controlnet],
+            torch_dtype=torch.float16,
+            use_safetensors=(model_name.endswith(".safetensors")),
+            safety_checker=None,
+            load_safety_checker=False).to("cuda")
+
+        self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
+        self.pipe.enable_model_cpu_offload()
+
         print("Running Pipeline")
         image = self.pipe(
             prompt,
@@ -245,8 +245,8 @@ class Model:
 
 
 @stub.local_entrypoint()
-def main(prompt: str, init_image: bytes, guess_mode: bool = False):
-    image_bytes = Model().inference.remote(prompt, init_image, guess_mode)
+def main(prompt: str, init_image: bytes, guess_mode: bool = False, model_name: str = "aniflatmixAnimeFlatColorStyle_v20.safetensors"):
+    image_bytes = Model().inference.remote(prompt, init_image, guess_mode, model_name)
 
     dir = Path("output")
     if not dir.exists():
@@ -289,8 +289,9 @@ def app():
         init_image = await form["init_image"].read()
         prompt = form["prompt"]
         guess_mode = form["guess_mode"]
+        model_name = form["model_name"]
 
-        image_bytes = Model().inference.remote(prompt, init_image, guess_mode)
+        image_bytes = Model().inference.remote(prompt, init_image, guess_mode, model_name)
 
         return Response(image_bytes, media_type="image/png")
 
