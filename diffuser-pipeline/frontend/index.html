@@ -21,14 +21,14 @@
 
     <form
             @submit.prevent="submitPrompt"
-            class="flex-1 items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-4"
+            class="grid grid-cols-2 items-center justify-center gap-x-4 gap-y-2 w-full mx-auto mb-10"
     >
         <input
                 x-data
                 x-model="prompt"
                 x-init="$nextTick(() => { $el.focus(); });"
                 type="text"
-                class="flex w-full px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
+                class="w-full col-span-2 px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
         />
         <!-- Add file input for init_image -->
         <input
@@ -37,10 +37,14 @@
         @change="handleImageChange"
         class="px-3 py-3 my-5 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
         />
+        <div>
+            <label class="mx-5">Guess Mode</label>
+            <input type="checkbox" @change="handleGuessModeChange"         class="px-3 py-3 my-5 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"/>
+        </div>
 
         <button
                 type="submit"
-                class=" items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
+                class="col-span-2 items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
                 :disabled="loading"
         >
             <span x-show="!loading">Submit</span>
@@ -85,8 +89,8 @@
             submittedFeatures: [],
             loading: false,
             imageURL: "",
+            guessMode: false,
             async submitPrompt() {
-                if (!this.prompt) return;
                 if (!this.init_image) return;
                 this.submitted = this.prompt;
                 this.submittedFeatures = [...this.features];
@@ -100,7 +104,7 @@
                 const formData = new FormData();
                 formData.append('init_image', this.init_image);
                 formData.append('prompt', this.prompt);
-
+                formData.append('guess_mode', this.guessMode);
                 const res = await fetch(`/infer/`, {
                     method: 'POST',
                     body: formData
@@ -123,6 +127,9 @@
                     this.init_image = file;
                 }
             },
+            handleGuessModeChange(event) {
+                this.guessMode = event.target.checked;
+            }
         };
     }
 </script>

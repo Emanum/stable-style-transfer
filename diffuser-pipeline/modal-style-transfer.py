@@ -43,6 +43,8 @@ def download_models():
         "lllyasviel/control_v11f1p_sd15_depth", ignore_patterns=ignore
     )
 
+    # "Intel/dpt-hybrid-midas") TODO: add this to the list of models to download
+
     # custom models from civitai.com
     run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/1356",
               "dreamlikeDiffusion10_10.ckpt")
@@ -168,7 +170,7 @@ class Model:
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
     @method()
-    def inference(self, prompt: str, init_image_bytes: bytes):
+    def inference(self, prompt: str, init_image_bytes: bytes, guess_mode: bool = False):
         # negative_prompt = "disfigured, ugly, deformed"
 
         # write image to file
@@ -196,7 +198,7 @@ class Model:
         canny_img = cv2.Canny(canny_img, 100, 200)
         canny_img = canny_img[:, :, None]
         canny_img = np.concatenate([canny_img, canny_img, canny_img], axis=2)
-        canny_img = np.array([canny_img])
+        canny_img = PILImage.fromarray(canny_img)
         # canny_pil_img = PILImage.fromarray(canny_img[0])
 
         # calc depth_map
@@ -214,6 +216,7 @@ class Model:
             prompt,
             image=init_image,
             control_image=[depth_map],
+            guess_mode=guess_mode,
         )
         image = image.images[0]
         # image = canny_image
@@ -242,8 +245,8 @@ class Model:
 
 
 @stub.local_entrypoint()
-def main(prompt: str, init_image: bytes):
-    image_bytes = Model().inference.remote(prompt, init_image)
+def main(prompt: str, init_image: bytes, guess_mode: bool = False):
+    image_bytes = Model().inference.remote(prompt, init_image, guess_mode)
 
     dir = Path("output")
     if not dir.exists():
@@ -285,8 +288,9 @@ def app():
         form = await request.form()
         init_image = await form["init_image"].read()
         prompt = form["prompt"]
+        guess_mode = form["guess_mode"]
 
-        image_bytes = Model().inference.remote(prompt, init_image)
+        image_bytes = Model().inference.remote(prompt, init_image, guess_mode)
 
         return Response(image_bytes, media_type="image/png")
 
