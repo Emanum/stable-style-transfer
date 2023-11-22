@@ -52,6 +52,12 @@ def download_models():
               "aniflatmixAnimeFlatColorStyle_v20.safetensors")
     run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/105924",
               "cetusMix_Whalefall2.safetensors")
+    run_async(download_file_with_tqdm,
+              "https://civitai.com/api/download/models/130072?type=Model&format=SafeTensor&size=pruned&fp=fp16",
+              "realisticVisionV51_v51VAE.safetensors")
+    run_async(download_file_with_tqdm,
+              "https://civitai.com/api/download/models/198962?type=Model&format=SafeTensor&size=pruned&fp=fp16",
+              "dynavisionXLAllInOneStylized_release0557Bakedvae.safetensors")
 
 
 def run_async(func, *args, **kwargs):
@@ -103,7 +109,10 @@ with stub.image.run_inside():
     from diffusers.utils import load_image
     import torch
     from PIL import Image as PILImage
-    from diffusers import StableDiffusionControlNetImg2ImgPipeline, UniPCMultistepScheduler
+    from diffusers import StableDiffusionControlNetImg2ImgPipeline, UniPCMultistepScheduler, \
+        StableDiffusionXLControlNetImg2ImgPipeline
+    import pathlib
+
 
 # ## Load model and run inference
 #
@@ -145,9 +154,14 @@ class Model:
                                                                 torch_dtype=torch.float16,
                                                                 use_safetensors=True)
 
+        print("Loading ControlNetXL Depth")
+        self.depth_controlnetXL = ControlNetModel.from_pretrained("diffusers/controlnet-depth-sdxl-1.0",
+                                                                variant="fp16",
+                                                                use_safetensors=True,
+                                                                torch_dtype=torch.float16,
+                                                                ).to("cuda")
         print("Loading ControlNet depth-estimation")
         self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas")
-
 
         # Compiling the model graph is JIT so this will increase inference time for the first run
         # but speed up subsequent runs. Uncomment to enable.
@@ -177,7 +191,6 @@ class Model:
             init_image = init_image.resize((new_width, new_height))
             print(f"Resized image to {new_width}x{new_height}")
 
-
         # calc canny
         print("Calculating canny")
         canny_img = np.array(init_image)
@@ -199,14 +212,24 @@ class Model:
 
         # load model
         print("Loading Pipeline")
-        self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
-            model_name,
-            # controlnet=[self.depth_controlnet, self.canny_controlnet],
-            controlnet=[self.depth_controlnet],
-            torch_dtype=torch.float16,
-            use_safetensors=(model_name.endswith(".safetensors")),
-            safety_checker=None,
-            load_safety_checker=False).to("cuda")
+        # check if XL in model name
+        if "XL" in model_name:
+            self.pipe = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(
+                pathlib.Path("./" + model_name),
+                # controlnet=[self.depth_controlnet, self.canny_controlnet],
+                controlnet=[self.depth_controlnet],
+                torch_dtype=torch.float16,
+                use_safetensors=(model_name.endswith(".safetensors")),
+                safety_checker=None,
+                load_safety_checker=False).to("cuda")
+        else:
+            self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+                model_name,
+                controlnet=[self.depth_controlnetXL],
+                torch_dtype=torch.float16,
+                use_safetensors=(model_name.endswith(".safetensors")),
+                safety_checker=None,
+                load_safety_checker=False).to("cuda")
 
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         self.pipe.enable_model_cpu_offload()
@@ -245,7 +268,8 @@ class Model:
 
 
 @stub.local_entrypoint()
-def main(prompt: str, init_image: bytes, guess_mode: bool = False, model_name: str = "aniflatmixAnimeFlatColorStyle_v20.safetensors"):
+def main(prompt: str, init_image: bytes, guess_mode: bool = False,
+         model_name: str = "aniflatmixAnimeFlatColorStyle_v20.safetensors"):
     image_bytes = Model().inference.remote(prompt, init_image, guess_mode, model_name)
 
     dir = Path("output")
