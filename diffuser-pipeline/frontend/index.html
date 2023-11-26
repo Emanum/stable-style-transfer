@@ -43,8 +43,8 @@
                 <option value="aniflatmixAnimeFlatColorStyle_v20.safetensors">Anime Flat Color</option>
                 <option value="cetusMix_Whalefall2.safetensors">Anime - Cetus-Mix</option>
                 <option value="photon_v1.safetensors">Photorealistic - Photon</option>
-                <option value="realisticVisionV51_v51VAE.safetensors">Photorealistic - Realistic Vision 5.1</option>
-                <option value="dynavisionXLAllInOneStylized_release0557Bakedvae.safetensors">Cartoon - DynaVision XL</option>
+<!--                <option value="realisticVisionV51_v51VAE.safetensors">Photorealistic - Realistic Vision 5.1</option>-->
+<!--                <option value="dynavisionXLAllInOneStylized_release0557Bakedvae.safetensors">Cartoon - DynaVision XL</option>-->
                 <option value="dreamlikeDiffusion10_10.ckpt">Dreamlike Diffusion 1.0</option>
             </select>
 
@@ -56,14 +56,30 @@
                     type="text"
                     class="w-full col-span-2 px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
             />
-
-
-            <h2 class="col-span-2 text-xl font-medium text-center ">Advanced Settings</h2>
-            <div>
-                <label class="mx-5">Guess Mode</label>
-                <input type="checkbox" @change="handleGuessModeChange"
-                       class="px-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"/>
+            <div class="col-span-2 flex items-center justify-center">
+                <h2 class="text-l font-medium text-center mt-5 mb-3 cursor-pointer rounded-md shadow-md p-2 bg-neutral-100 hover:bg-neutral-200"
+                    x-on:click="showAdvanced = !showAdvanced">toggle advanced settings</h2>
             </div>
+            <div id="advancedSetting col-span-2" class="col-span-2 grid grid-cols-2 col-span-2" x-show="showAdvanced">
+                <div class="col-span-2 flex">
+                    <p class="text-center w-1/8"
+                       x-text="'creativity '+creativity + '%'"></p>
+                    <input type="range" min="0" max="100" value="50" id="myRange" x-data x-model="creativity"
+                           x-on:change="updateCannyCheckbox"
+                           class="flex-grow mx-5"/>
+
+                </div>
+
+                <div class="flex mt-4">
+                    <label class="text-center w-1/8">Guess Mode:</label>
+                    <input type="checkbox" id="guessMode" x-data x-model="guessMode"
+                           class="flex-grow mx-5"/>
+                    <label class="text-center w-1/8">Canny:</label>
+                    <input type="checkbox" id="canny" x-data x-model="canny"
+                           class="flex-grow mx-5"/>
+                </div>
+            </div>
+
         </div>
         <button
                 type="submit"
@@ -100,19 +116,31 @@
                 :src="imageURL"
         />
     </div>
+
+    <button
+            class="w-full items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
+            :disabled="loading"
+            x-show="!loading && imageURL"
+            @click="switchDisplay"
+    >Compare</button>
 </div>
 
 <script>
     function state() {
         return {
             prompt: "a beautiful Japanese temple, butterflies flying around",
+            creativity: 50,  // 0-100
             init_image: null,
             features: [],
             submitted: "",
             submittedFeatures: [],
             loading: false,
             imageURL: "",
+            submittedImageURL: "",
+            recieveImageURL: "",
+            showAdvanced: false,
             guessMode: false,
+            canny: false,
             model: "aniflatmixAnimeFlatColorStyle_v20.safetensors",
             async submitPrompt() {
                 if (!this.init_image) return;
@@ -130,34 +158,40 @@
                 formData.append('prompt', this.prompt);
                 formData.append('guess_mode', this.guessMode);
                 formData.append('model_name', this.model);
+                formData.append('creativity', this.creativity);
+                formData.append('canny', this.canny);
+                this.imageURL = this.submittedImageURL;
                 const res = await fetch(`/infer/`, {
                     method: 'POST',
                     body: formData
                 });
 
                 const blob = await res.blob();
-                this.imageURL = URL.createObjectURL(blob);
+                this.recieveImageURL = URL.createObjectURL(blob);
+                this.imageURL = this.recieveImageURL;
                 this.loading = false;
-                // scroll down to image
-                window.scrollTo({
-                    top: document.body.scrollHeight,
-                    behavior: "smooth",
-                });
-            },
-            toggleFeature(featureName) {
-                let index = this.features.indexOf(featureName);
-                index == -1
-                    ? this.features.push(featureName)
-                    : this.features.splice(index, 1);
             },
             handleImageChange(event) {
                 const file = event.target.files[0];
                 if (file) {
                     this.init_image = file;
                 }
+                // set submittedImageURL to the image from the input selection
+                this.submittedImageURL = URL.createObjectURL(file);
             },
-            handleGuessModeChange(event) {
-                this.guessMode = event.target.checked;
+            switchDisplay() {
+                if (this.imageURL === this.recieveImageURL) {
+                    this.imageURL = this.submittedImageURL;
+                } else {
+                    this.imageURL = this.recieveImageURL;
+                }
+            },
+            updateCannyCheckbox() {
+                if (this.creativity > 50) {
+                    this.canny = false;
+                } else {
+                    this.canny = true;
+                }
             }
         };
     }

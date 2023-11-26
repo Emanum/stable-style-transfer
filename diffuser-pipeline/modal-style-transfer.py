@@ -154,12 +154,12 @@ class Model:
                                                                 torch_dtype=torch.float16,
                                                                 use_safetensors=True)
 
-        print("Loading ControlNetXL Depth")
-        self.depth_controlnetXL = ControlNetModel.from_pretrained("diffusers/controlnet-depth-sdxl-1.0",
-                                                                variant="fp16",
-                                                                use_safetensors=True,
-                                                                torch_dtype=torch.float16,
-                                                                ).to("cuda")
+        # print("Loading ControlNetXL Depth")
+        # self.depth_controlnetXL = ControlNetModel.from_pretrained("diffusers/controlnet-depth-sdxl-1.0",
+        #                                                         variant="fp16",
+        #                                                         use_safetensors=True,
+        #                                                         torch_dtype=torch.float16,
+        #                                                         ).to("cuda")
         print("Loading ControlNet depth-estimation")
         self.depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas")
 
@@ -169,8 +169,8 @@ class Model:
         # self.refiner.unet = torch.compile(self.refiner.unet, mode="reduce-overhead", fullgraph=True)
 
     @method()
-    def inference(self, prompt: str, init_image_bytes: bytes, guess_mode: bool = False,
-                  model_name: str = "aniflatmixAnimeFlatColorStyle_v20.safetensors"):
+    def inference(self, prompt: str, init_image_bytes: bytes, guess_mode: bool = False, canny: bool = False,
+                  model_name: str = "aniflatmixAnimeFlatColorStyle_v20.safetensors", creativity: int = 50):
         # negative_prompt = "disfigured, ugly, deformed"
 
         # write image to file
@@ -217,29 +217,45 @@ class Model:
             self.pipe = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(
                 pathlib.Path("./" + model_name),
                 # controlnet=[self.depth_controlnet, self.canny_controlnet],
-                controlnet=[self.depth_controlnet],
-                torch_dtype=torch.float16,
-                use_safetensors=(model_name.endswith(".safetensors")),
-                safety_checker=None,
-                load_safety_checker=False).to("cuda")
-        else:
-            self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
-                model_name,
                 controlnet=[self.depth_controlnetXL],
                 torch_dtype=torch.float16,
                 use_safetensors=(model_name.endswith(".safetensors")),
                 safety_checker=None,
                 load_safety_checker=False).to("cuda")
+        else:
+            control_net = [self.depth_controlnet]
+            if canny:
+                control_net.append(self.canny_controlnet)
+            self.pipe = StableDiffusionControlNetImg2ImgPipeline.from_single_file(
+                model_name,
+                controlnet=control_net,
+                torch_dtype=torch.float16,
+                use_safetensors=(model_name.endswith(".safetensors"))
+            ).to("cuda")
 
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         self.pipe.enable_model_cpu_offload()
 
+        # convert creativity to guidance_scale, inverse proportional
+        # min_guidance_scale = 5, max_guidance_scale = 15
+        # cast creativity to float
+        min_guidance_scale = 1
+        max_guidance_scale = 25
+
+        creativity = float(creativity)
+        guidance_scale = min_guidance_scale + (max_guidance_scale - min_guidance_scale) * (1 - creativity / 100)
+        print(f"Guidance scale: {guidance_scale}")
+
         print("Running Pipeline")
+        control_img = [depth_map]
+        if canny:
+            control_img.append(canny_img)
         image = self.pipe(
             prompt,
             image=init_image,
-            control_image=[depth_map],
+            control_image=control_img,
             guess_mode=guess_mode,
+            guidance_scale=guidance_scale,
         )
         image = image.images[0]
         # image = canny_image
@@ -314,8 +330,10 @@ def app():
         prompt = form["prompt"]
         guess_mode = form["guess_mode"]
         model_name = form["model_name"]
+        creativity = form["creativity"]
+        canny = form["canny"]
 
-        image_bytes = Model().inference.remote(prompt, init_image, guess_mode, model_name)
+        image_bytes = Model().inference.remote(prompt, init_image, guess_mode, canny, model_name, creativity)
 
         return Response(image_bytes, media_type="image/png")
 
