@@ -114,6 +114,7 @@
                 x-show="imageURL"
                 class="rounded-md self-center justify-self-center"
                 :src="imageURL"
+                x-on:click="switchDisplay"
         />
     </div>
 
@@ -180,6 +181,7 @@
                 this.submittedImageURL = URL.createObjectURL(file);
             },
             switchDisplay() {
+                if(!this.recieveImageURL) return;
                 if (this.imageURL === this.recieveImageURL) {
                     this.imageURL = this.submittedImageURL;
                 } else {
