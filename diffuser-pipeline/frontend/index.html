@@ -24,7 +24,7 @@
             class="grid grid-cols-2 items-center justify-center gap-x-4 w-full mx-auto mb-10"
     >
         <div class="grid grid-cols-2 col-span-2 shadow-lg rounded-md bg-neutral-100 p-5">
-            <h2 class="col-span-2 text-xl font-medium text-center my-3">1. Select an Image</h2>
+            <h2 class="col-span-2 text-xl font-medium text-center my-3">1. Select an Image (or use the default)</h2>
             <input
                     type="file"
                     accept="image/*"
@@ -121,7 +121,7 @@
     <button
             class="w-full items-center justify-center px-4 py-3 text-sm font-medium tracking-wide text-white transition-colors duration-200 rounded-md bg-neutral-950 hover:bg-neutral-900 focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 focus:shadow-outline focus:outline-none"
             :disabled="loading"
-            x-show="!loading && imageURL"
+            x-show="!loading && imageURL && submittedImageURL"
             @click="switchDisplay"
     >Compare</button>
 </div>
@@ -136,7 +136,7 @@
             submitted: "",
             submittedFeatures: [],
             loading: false,
-            imageURL: "",
+            imageURL: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/The_Leaning_Tower_of_Pisa_SB.jpeg/1200px-The_Leaning_Tower_of_Pisa_SB.jpeg",
             submittedImageURL: "",
             recieveImageURL: "",
             showAdvanced: false,
@@ -144,7 +144,13 @@
             canny: false,
             model: "aniflatmixAnimeFlatColorStyle_v20.safetensors",
             async submitPrompt() {
-                if (!this.init_image) return;
+                if (!this.init_image){
+                    // if no image is selected, use the default image in imageURL and transform it to a file object
+                    const response = await fetch(this.imageURL);
+                    const blob = await response.blob();
+                    this.init_image = new File([blob], "default.jpg", {type: "image/jpeg"});
+                    this.submittedImageURL = this.imageURL;
+                }
                 this.submitted = this.prompt;
                 this.submittedFeatures = [...this.features];
                 this.loading = true;
@@ -179,6 +185,7 @@
                 }
                 // set submittedImageURL to the image from the input selection
                 this.submittedImageURL = URL.createObjectURL(file);
+                this.imageURL = this.submittedImageURL;
             },
             switchDisplay() {
                 if(!this.recieveImageURL) return;
