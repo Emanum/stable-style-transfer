@@ -41,11 +41,12 @@
                     class="w-full col-span-2 px-3 py-3 text-md bg-white border rounded-md border-neutral-300 ring-offset-background placeholder:text-neutral-500 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-400 disabled:cursor-not-allowed disabled:opacity-50 text-center"
             >
                 <option value="aniflatmixAnimeFlatColorStyle_v20.safetensors">Anime Flat Color</option>
-                <option value="cetusMix_Whalefall2.safetensors">Anime - Cetus-Mix</option>
                 <option value="photon_v1.safetensors">Photorealistic - Photon</option>
-<!--                <option value="realisticVisionV51_v51VAE.safetensors">Photorealistic - Realistic Vision 5.1</option>-->
-<!--                <option value="dynavisionXLAllInOneStylized_release0557Bakedvae.safetensors">Cartoon - DynaVision XL</option>-->
-                <option value="dreamlikeDiffusion10_10.ckpt">Dreamlike Diffusion 1.0</option>
+                <option value="ghostmix_v20Bakedvae.safetensors">Cartoon - GhostMix</option>
+                <option value="majicmixFantasy_v30Vae.safetensors">majicMIX fantasy</option>
+                <option value="juggernaut_reborn.safetensors">Juggernaut</option>
+                <option value="cetusMix_Whalefall2.safetensors">Anime - Cetus-Mix</option>
+                <option value="etherBluMix_etherBlueMix6.safetensors">Ether Blu Mix</option>
             </select>
 
             <h2 class="col-span-2 text-xl font-medium text-center my-5"> 3. Provide a Prompt (optional)</h2>
@@ -196,11 +197,11 @@
                 }
             },
             updateCannyCheckbox() {
-                if (this.creativity > 50) {
-                    this.canny = false;
-                } else {
-                    this.canny = true;
-                }
+                // if (this.creativity > 50) {
+                //     this.canny = false;
+                // } else {
+                //     this.canny = true;
+                // }
             }
         };
     }

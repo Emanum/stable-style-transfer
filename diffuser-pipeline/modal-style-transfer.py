@@ -44,21 +44,20 @@ def download_models():
     )
 
     # custom models from civitai.com
-    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/1356",
-              "dreamlikeDiffusion10_10.ckpt")
     run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/90072",
               "photon_v1.safetensors")
     run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/40816",
               "aniflatmixAnimeFlatColorStyle_v20.safetensors")
     run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/105924",
               "cetusMix_Whalefall2.safetensors")
-    run_async(download_file_with_tqdm,
-              "https://civitai.com/api/download/models/130072?type=Model&format=SafeTensor&size=pruned&fp=fp16",
-              "realisticVisionV51_v51VAE.safetensors")
-    run_async(download_file_with_tqdm,
-              "https://civitai.com/api/download/models/198962?type=Model&format=SafeTensor&size=pruned&fp=fp16",
-              "dynavisionXLAllInOneStylized_release0557Bakedvae.safetensors")
-
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/76907",
+              "ghostmix_v20Bakedvae.safetensors")
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/256869",
+              "majicmixFantasy_v30Vae.safetensors")
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/274039",
+              "juggernaut_reborn.safetensors")
+    run_async(download_file_with_tqdm, "https://civitai.com/api/download/models/256504",
+              "etherBluMix_etherBlueMix6.safetensors")
 
 def run_async(func, *args, **kwargs):
     import threading
