@@ -103,7 +103,7 @@ image = (
 
 stub = Stub("stable-style-transfer", image=image)
 
-with stub.image.run_inside():
+with image.imports():
     import numpy as np
     import cv2
     from diffusers.utils import load_image
@@ -123,7 +123,7 @@ with stub.image.run_inside():
 # online for 4 minutes before spinning down. This can be adjusted for cost/experience trade-offs.
 
 
-@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240)
+@stub.cls(gpu=gpu.A10G(), container_idle_timeout=240, concurrency_limit=5)
 class Model:
     def __init__(self):
         self.pipe = None
@@ -203,7 +203,7 @@ class Model:
         # calc depth_map
         # depth_estimator = pipeline("depth-estimation", model="Intel/dpt-large")  # dpt-hybrid-midas
         print("Calculating depth map")
-        og_depth_map = Model().get_depth_map.remote(init_image, self.depth_estimator)
+        og_depth_map = self.get_depth_map(init_image, self.depth_estimator)
         depth_map = og_depth_map.unsqueeze(0).half().to("cuda")
         # depth_img = og_depth_map.squeeze(0).permute(1, 2, 0).cpu().numpy()
         # depth_img = depth_img * 255
@@ -268,7 +268,6 @@ class Model:
 
         return image_bytes
 
-    @method()
     def get_depth_map(self, image, depth_estimator):
         image = depth_estimator(image)["depth"]
         image = np.array(image)
@@ -311,8 +310,7 @@ frontend_path = Path(__file__).parent / "frontend"
 
 
 @stub.function(
-    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")],
-    allow_concurrent_inputs=20,
+    mounts=[Mount.from_local_dir(frontend_path, remote_path="/assets")]
 )
 @asgi_app()
 def app():
